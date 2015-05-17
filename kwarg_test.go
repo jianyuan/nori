@@ -32,4 +32,19 @@ func TestKWArgsContext(t *testing.T) {
 		assert.Equal(t, kwargVal, actualVal)
 		assert.True(t, present)
 	}
+
+	{
+		writeKey := "writeKey"
+		writeVal := "writeVal"
+
+		write, ok := KWArgsFromContext(ctx)
+		assert.True(t, ok)
+		write[writeKey] = writeVal
+
+		read, ok := KWArgsFromContext(ctx)
+		assert.True(t, ok)
+		actualVal, present := read[writeKey]
+		assert.Equal(t, writeVal, actualVal)
+		assert.True(t, present)
+	}
 }
