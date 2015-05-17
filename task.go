@@ -9,7 +9,7 @@ import (
 type ProtocolV1 struct {
 	Name       string                 `json:"task"`
 	ID         string                 `json:"id"`
-	Args       []string               `json:"args,omitempty"`
+	Args       []interface{}          `json:"args,omitempty"`
 	KWArgs     map[string]interface{} `json:"kwargs,omitempty"`
 	Retries    int                    `json:"retries,omitempty"`
 	ETA        *time.Time             `json:"eta,omitempty"`

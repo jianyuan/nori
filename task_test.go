@@ -30,7 +30,7 @@ func TestProtocolV1_JSONUnmarshal(t *testing.T) {
 	expected := ProtocolV1{
 		Name:       "tasks.hello_world",
 		ID:         "00000000-0000-0000-0000-000000000000",
-		Args:       []string{},
+		Args:       []interface{}{},
 		KWArgs:     map[string]interface{}{},
 		Retries:    0,
 		ETA:        nil,
