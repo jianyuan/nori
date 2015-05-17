@@ -1,8 +1,12 @@
 package task
 
-import "time"
+import (
+	"time"
 
-type Task struct {
+	"golang.org/x/net/context"
+)
+
+type ProtocolV1 struct {
 	Name       string                 `json:"task"`
 	ID         string                 `json:"id"`
 	Args       []string               `json:"args,omitempty"`
@@ -16,4 +20,11 @@ type Task struct {
 	TimeLimits [2]*float64            `json:"timelimit,omitempty"`
 	TaskSet    *string                `json:"taskset,omitempty"`
 	Chord      *string                `json:"chord,omitempty"`
+}
+
+type TaskFunc func(context.Context) error
+
+type Task struct {
+	Func TaskFunc
+	Name string
 }

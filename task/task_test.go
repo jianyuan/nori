@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTask_JSONUnmarshal(t *testing.T) {
+func TestProtocolV1_JSONUnmarshal(t *testing.T) {
 	jsonPayload := []byte(`{
 		"expires":null,
 		"utc":true,
@@ -24,10 +24,10 @@ func TestTask_JSONUnmarshal(t *testing.T) {
 		"kwargs":{}
 	}`)
 
-	var actualTask Task
-	assert.NoError(t, json.Unmarshal(jsonPayload, &actualTask))
+	var actual ProtocolV1
+	assert.NoError(t, json.Unmarshal(jsonPayload, &actual))
 
-	expectedTask := Task{
+	expected := ProtocolV1{
 		Name:       "tasks.hello_world",
 		ID:         "00000000-0000-0000-0000-000000000000",
 		Args:       []string{},
@@ -42,5 +42,5 @@ func TestTask_JSONUnmarshal(t *testing.T) {
 		TaskSet:    nil,
 		Chord:      nil,
 	}
-	assert.Equal(t, expectedTask, actualTask)
+	assert.Equal(t, expected, actual)
 }
