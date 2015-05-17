@@ -30,8 +30,8 @@ func TestProtocolV1_JSONUnmarshal(t *testing.T) {
 	expected := ProtocolV1{
 		Name:       "tasks.hello_world",
 		ID:         "00000000-0000-0000-0000-000000000000",
-		Args:       []string{},
-		KWArgs:     map[string]interface{}{},
+		Args:       ArgMap{},
+		KWArgs:     KWArgMap{},
 		Retries:    0,
 		ETA:        nil,
 		Expires:    nil,
@@ -42,5 +42,5 @@ func TestProtocolV1_JSONUnmarshal(t *testing.T) {
 		TaskSet:    nil,
 		Chord:      nil,
 	}
-	assert.Equal(t, expected, actual)
+	assert.EqualValues(t, expected, actual)
 }
