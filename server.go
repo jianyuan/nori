@@ -1,24 +1,23 @@
-package server
+package nori
 
 import (
 	"os"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/jianyuan/nori/task"
 )
 
 type Server struct {
 	Name  string
-	Tasks []*task.Task
+	Tasks []*Task
 }
 
-func New(name string) *Server {
+func NewServer(name string) *Server {
 	return &Server{
 		Name: name,
 	}
 }
 
-func (s *Server) RegisterTask(t *task.Task) {
+func (s *Server) RegisterTask(t *Task) {
 	// TODO: validation
 	t.Name = s.Name + "." + t.Name
 	s.Tasks = append(s.Tasks, t)
