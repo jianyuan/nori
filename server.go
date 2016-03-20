@@ -99,17 +99,43 @@ func (s *Server) setupTransport() <-chan error {
 }
 
 func (s *Server) consumeMessages() {
-	msgChan, err := s.Transport.Consume("celery")
+	reqChan, err := s.Transport.Consume("celery")
 	if err != nil {
 		log.Errorln("Transport consume error:", err)
 		return
 	}
 
-	select {
-	case msg := <-msgChan:
-		pretty.Println(msg)
-	case <-s.tomb.Dying():
-		return
+	for {
+		select {
+		case req := <-reqChan:
+			pretty.Println("Request:", req)
+
+			if task, ok := s.Tasks[req.TaskName]; ok {
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Errorln("Handler panicked:", r)
+						}
+					}()
+					resp, err := task.Handler(req)
+					if err != nil {
+						log.Errorln("Task handler errored:", err)
+					} else {
+						pretty.Println("Response:", resp)
+						log.Infoln("Replying...")
+
+						if err := s.Transport.Reply(req, resp); err != nil {
+							log.Errorln("Reply errored:", err)
+						}
+					}
+				}()
+			} else {
+				log.Errorln("Unknown task:", req.TaskName)
+			}
+
+		case <-s.tomb.Dying():
+			return
+		}
 	}
 }
 

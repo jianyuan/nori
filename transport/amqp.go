@@ -3,9 +3,11 @@ package transport
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/jianyuan/nori/message"
 	"github.com/jianyuan/nori/protocol"
+	"github.com/kr/pretty"
 	"github.com/streadway/amqp"
 	"gopkg.in/tomb.v2"
 )
@@ -131,15 +133,19 @@ func (AMQPTransport) parseDelivery(d amqp.Delivery) (*message.Request, error) {
 			return nil, err
 		}
 
+		pretty.Println("CeleryTask:", celeryTask)
+
 		// TODO other celery fields
 		return &message.Request{
-			HandlerName: celeryTask.Name,
-			ID:          celeryTask.ID,
-			Args:        celeryTask.Args,
-			KWArgs:      celeryTask.KWArgs,
-			ETA:         celeryTask.ETA,
-			ExpiresAt:   celeryTask.ExpiresAt,
-			IsUTC:       celeryTask.IsUTC,
+			TaskName:  celeryTask.Name,
+			ID:        celeryTask.ID,
+			Args:      celeryTask.Args,
+			KWArgs:    celeryTask.KWArgs,
+			ETA:       celeryTask.ETA,
+			ExpiresAt: celeryTask.ExpiresAt,
+			IsUTC:     celeryTask.IsUTC,
+
+			ReplyTo: d.ReplyTo,
 		}, nil
 
 	default:
@@ -160,6 +166,26 @@ func (srv *AMQPTransport) Close() error {
 	return nil
 }
 
+func (srv *AMQPTransport) Reply(req *message.Request, resp message.Response) error {
+	body, err := messageResponseBytes(resp)
+	if err != nil {
+		return err
+	}
+
+	return srv.channel.Publish(
+		"",                // exchange
+		resp.GetReplyTo(), // key
+		true,              // mandatory
+		false,             // immediate
+		amqp.Publishing{
+			ContentType:   "application/json",
+			DeliveryMode:  amqp.Persistent,
+			CorrelationId: resp.GetID(),
+			Timestamp:     time.Now().UTC(),
+			Body:          body,
+		})
+}
+
 func NewAMQPTransport(url string) Driver {
 	return &AMQPTransport{
 		URL:          url,
@@ -167,4 +193,12 @@ func NewAMQPTransport(url string) Driver {
 		ExchangeKind: "direct",
 		tomb:         new(tomb.Tomb),
 	}
+}
+
+func messageResponseBytes(resp message.Response) ([]byte, error) {
+	return json.Marshal(protocol.CeleryResult{
+		Status: resp.GetStatus(),
+		Result: resp.GetBody(),
+		TaskID: resp.GetID(),
+	})
 }

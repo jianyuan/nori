@@ -1,21 +1,22 @@
 package message
 
 import (
-	"encoding/json"
 	"time"
 
 	"golang.org/x/net/context"
 )
 
 type Request struct {
-	Ctx         context.Context
-	HandlerName string
-	ID          string
-	Args        []interface{}
-	KWArgs      map[string]interface{}
-	ETA         *time.Time
-	ExpiresAt   *time.Time
-	IsUTC       bool
+	Ctx       context.Context
+	TaskName  string
+	ID        string
+	Args      []interface{}
+	KWArgs    map[string]interface{}
+	ETA       *time.Time
+	ExpiresAt *time.Time
+	IsUTC     bool
+
+	ReplyTo string
 	// TODO other celery fields
 }
 
@@ -35,7 +36,9 @@ func (req *Request) MustKWArg(key string) interface{} {
 
 func (req *Request) NewResponse() Response {
 	return &response{
-		ID: req.ID,
+		ID:      req.ID,
+		Status:  "SUCCESS",
+		ReplyTo: req.ReplyTo,
 	}
 }
 
@@ -50,12 +53,18 @@ type Response interface {
 	SetID(string)
 	SetStatus(string)
 	SetBody(interface{}) error
+	GetID() string
+	GetStatus() string
+	GetBody() interface{}
+	GetReplyTo() string
 }
 
 type response struct {
 	ID     string
 	Status string
-	Body   []byte
+	Body   interface{}
+
+	ReplyTo string
 }
 
 func (resp *response) SetID(id string) {
@@ -67,11 +76,22 @@ func (resp *response) SetStatus(status string) {
 }
 
 func (resp *response) SetBody(body interface{}) error {
-	// TODO
-	b, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-	resp.Body = b
+	resp.Body = body
 	return nil
+}
+
+func (resp *response) GetID() string {
+	return resp.ID
+}
+
+func (resp *response) GetStatus() string {
+	return resp.Status
+}
+
+func (resp *response) GetBody() interface{} {
+	return resp.Body
+}
+
+func (resp *response) GetReplyTo() string {
+	return resp.ReplyTo
 }

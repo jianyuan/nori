@@ -11,4 +11,5 @@ type Driver interface {
 	Setup() error
 	Close() error
 	Consume(string) (<-chan *message.Request, error)
+	Reply(*message.Request, message.Response) error
 }

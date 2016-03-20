@@ -2,11 +2,11 @@ package nori
 
 import "github.com/jianyuan/nori/message"
 
-type TaskFunc func(message.Request) (message.Response, error)
+type TaskHandlerFunc func(*message.Request) (message.Response, error)
 
 type Task struct {
 	Name     string
-	Handler  TaskFunc
+	Handler  TaskHandlerFunc
 	Request  interface{}
 	Response interface{}
 }

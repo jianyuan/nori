@@ -8,15 +8,17 @@ import (
 	"github.com/jianyuan/nori/transport"
 )
 
-func Ping(req message.Request) (message.Response, error) {
+func Ping(req *message.Request) (message.Response, error) {
 	resp := req.NewResponse()
 	resp.SetBody("Pong!")
 	return resp, nil
 }
 
-func Add(req message.Request) (message.Response, error) {
+func Add(req *message.Request) (message.Response, error) {
 	resp := req.NewResponse()
-	resp.SetBody(req.MustArg(0).(int) + req.MustArg(1).(int))
+	a := int(req.MustArg(0).(float64))
+	b := int(req.MustArg(1).(float64))
+	resp.SetBody(a + b)
 	return resp, nil
 }
 
