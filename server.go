@@ -1,6 +1,7 @@
 package nori
 
 import (
+	"fmt"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
@@ -8,19 +9,25 @@ import (
 
 type Server struct {
 	Name  string
-	Tasks []*Task
+	Tasks map[string]*Task
 }
 
 func NewServer(name string) *Server {
 	return &Server{
-		Name: name,
+		Name:  name,
+		Tasks: make(map[string]*Task),
 	}
 }
 
 func (s *Server) RegisterTask(t *Task) {
 	// TODO: validation
 	t.Name = s.Name + "." + t.Name
-	s.Tasks = append(s.Tasks, t)
+
+	if _, ok := s.Tasks[t.Name]; ok {
+		panic(fmt.Sprintf("Task %q already registered", t.Name))
+	}
+
+	s.Tasks[t.Name] = t
 }
 
 func (s *Server) printInfo() {
