@@ -1,20 +1,17 @@
 package main
 
-import (
-	"github.com/jianyuan/nori/server"
-	"github.com/jianyuan/nori/task"
-	"golang.org/x/net/context"
-)
+import "github.com/jianyuan/nori"
 
-func HelloWorld(ctx context.Context) error {
-	return nil
+func HelloWorld(req nori.Request) (nori.Response, error) {
+	return nil, nil
 }
 
 func main() {
-	s := server.New("tasks")
-	s.RegisterTask(&task.Task{
-		Func: HelloWorld,
-		Name: "hello_world",
+	s := nori.NewServer("tasks")
+
+	s.RegisterTask(&nori.Task{
+		Name:    "hello_world",
+		Handler: HelloWorld,
 	})
 
 	go s.RunManagementServer(":8080")

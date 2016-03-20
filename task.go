@@ -1,10 +1,6 @@
 package nori
 
-import (
-	"time"
-
-	"golang.org/x/net/context"
-)
+import "time"
 
 type ProtocolV1 struct {
 	Name       string      `json:"task"`
@@ -22,9 +18,17 @@ type ProtocolV1 struct {
 	Chord      *string     `json:"chord,omitempty"`
 }
 
-type TaskFunc func(context.Context) error
+type TaskFunc func(Request) (Response, error)
+
+type Request interface {
+}
+
+type Response interface {
+}
 
 type Task struct {
-	Func TaskFunc
-	Name string
+	Name     string
+	Handler  TaskFunc
+	Request  interface{}
+	Response interface{}
 }
