@@ -1,7 +1,6 @@
 package nori
 
 import (
-	"fmt"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
@@ -23,10 +22,9 @@ func (s *Server) RegisterTask(t *Task) {
 	// TODO: validation
 	t.Name = s.Name + "." + t.Name
 
-	if _, ok := s.Tasks[t.Name]; ok {
-		panic(fmt.Sprintf("Task %q already registered", t.Name))
+	if _, existing := s.Tasks[t.Name]; existing {
+		log.Panicln("Task already registered:", t.Name)
 	}
-
 	s.Tasks[t.Name] = t
 }
 
@@ -44,6 +42,8 @@ func (s *Server) printInfo() {
 
 func (s *Server) Run() error {
 	go s.run()
+
+	go s.RunManagementServer(":8080")
 
 	return nil
 }

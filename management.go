@@ -9,10 +9,8 @@ import (
 
 func (s *Server) RunManagementServer(addr string) {
 	log.Infoln("Management server started on ", addr)
-
 	s.setupExpvar()
-
-	http.ListenAndServe(addr, nil)
+	go http.ListenAndServe(addr, nil)
 }
 
 func (s *Server) setupExpvar() {

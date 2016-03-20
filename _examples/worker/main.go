@@ -26,7 +26,6 @@ func main() {
 		Handler: Add,
 	})
 
-	go s.RunManagementServer(":8080")
 	s.Run()
 
 	<-make(chan bool)
