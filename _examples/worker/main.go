@@ -2,16 +2,28 @@ package main
 
 import "github.com/jianyuan/nori"
 
-func HelloWorld(req nori.Request) (nori.Response, error) {
-	return nil, nil
+func Ping(req nori.Request) (nori.Response, error) {
+	resp := req.NewResponse()
+	resp.SetBody("Pong!")
+	return resp, nil
+}
+
+func Add(req nori.Request) (nori.Response, error) {
+	resp := req.NewResponse()
+	resp.SetBody(req.MustArg(0).(int) + req.MustArg(1).(int))
+	return resp, nil
 }
 
 func main() {
 	s := nori.NewServer("tasks")
 
 	s.RegisterTask(&nori.Task{
-		Name:    "hello_world",
-		Handler: HelloWorld,
+		Name:    "ping",
+		Handler: Ping,
+	})
+	s.RegisterTask(&nori.Task{
+		Name:    "add",
+		Handler: Add,
 	})
 
 	go s.RunManagementServer(":8080")
