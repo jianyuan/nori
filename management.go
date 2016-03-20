@@ -6,7 +6,7 @@ import (
 )
 
 func (s *Server) RunManagementServer(addr string) {
-	log.Infoln("Management server started on ", addr)
+	log.Infoln("Management server listening on", addr)
 	s.setupExpvar()
 	go http.ListenAndServe(addr, nil)
 }

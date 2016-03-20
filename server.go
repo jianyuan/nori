@@ -2,17 +2,28 @@ package nori
 
 import (
 	"os"
+	"time"
+
+	"gopkg.in/tomb.v2"
+
+	"github.com/jianyuan/nori/transport"
+	"github.com/kr/pretty"
 )
 
 type Server struct {
-	Name  string
-	Tasks map[string]*Task
+	Name      string
+	Tasks     map[string]*Task
+	Transport transport.Driver
+
+	tomb *tomb.Tomb
 }
 
-func NewServer(name string) *Server {
+func NewServer(name string, transport transport.Driver) *Server {
 	return &Server{
-		Name:  name,
-		Tasks: make(map[string]*Task),
+		Name:      name,
+		Tasks:     make(map[string]*Task),
+		Transport: transport,
+		tomb:      new(tomb.Tomb),
 	}
 }
 
@@ -39,7 +50,7 @@ func (s *Server) printInfo() {
 }
 
 func (s *Server) Run() error {
-	go s.run()
+	s.tomb.Go(s.run)
 
 	go s.RunManagementServer(":8080")
 
@@ -49,5 +60,63 @@ func (s *Server) Run() error {
 func (s *Server) run() error {
 	s.printInfo()
 
-	return nil
+	for {
+		log.Infoln("Connecting")
+		select {
+		case err := <-s.setupTransport():
+			if err != nil {
+				log.Errorln("Transport setup error:", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			log.Infoln("Connected!")
+
+			s.consumeMessages()
+
+		case <-s.tomb.Dying():
+			log.Infoln("Cancelled")
+			break
+
+		case <-time.After(5 * time.Second):
+			// TODO better retry mechanism
+			log.Errorln("Timed out")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+	}
+
+	return s.Transport.Close()
+}
+
+func (s *Server) setupTransport() <-chan error {
+	errChan := make(chan error)
+	s.tomb.Go(func() error {
+		errChan <- s.Transport.Setup()
+		return nil
+	})
+	return errChan
+}
+
+func (s *Server) consumeMessages() {
+	msgChan, err := s.Transport.Consume("celery")
+	if err != nil {
+		log.Errorln("Transport consume error:", err)
+		return
+	}
+
+	select {
+	case msg := <-msgChan:
+		pretty.Println(msg)
+	case <-s.tomb.Dying():
+		return
+	}
+}
+
+func (s *Server) Wait() error {
+	return s.tomb.Wait()
+}
+
+func (s *Server) Stop() {
+	s.tomb.Kill(nil)
 }

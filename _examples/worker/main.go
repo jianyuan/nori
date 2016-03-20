@@ -1,21 +1,28 @@
 package main
 
-import "github.com/jianyuan/nori"
+import (
+	"log"
 
-func Ping(req nori.Request) (nori.Response, error) {
+	"github.com/jianyuan/nori"
+	"github.com/jianyuan/nori/message"
+	"github.com/jianyuan/nori/transport"
+)
+
+func Ping(req message.Request) (message.Response, error) {
 	resp := req.NewResponse()
 	resp.SetBody("Pong!")
 	return resp, nil
 }
 
-func Add(req nori.Request) (nori.Response, error) {
+func Add(req message.Request) (message.Response, error) {
 	resp := req.NewResponse()
 	resp.SetBody(req.MustArg(0).(int) + req.MustArg(1).(int))
 	return resp, nil
 }
 
 func main() {
-	s := nori.NewServer("tasks")
+	t := transport.NewAMQPTransport("amqp://guest:guest@localhost:5672//")
+	s := nori.NewServer("tasks", t)
 
 	s.RegisterTask(&nori.Task{
 		Name:    "ping",
@@ -26,7 +33,18 @@ func main() {
 		Handler: Add,
 	})
 
-	s.Run()
+	if err := s.Run(); err != nil {
+		log.Panicln("Can't start worker:", err)
+	}
 
-	<-make(chan bool)
+	// sigs := make(chan os.Signal, 1)
+	// signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	// go func() {
+	// 	<-sigs
+	// 	s.Stop()
+	// }()
+
+	if err := s.Wait(); err != nil {
+		log.Panicln("Worker terminated prematurely:", err)
+	}
 }
