@@ -2,8 +2,6 @@ package nori
 
 import (
 	"os"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 type Server struct {
@@ -23,7 +21,7 @@ func (s *Server) RegisterTask(t *Task) {
 	t.Name = s.Name + "." + t.Name
 
 	if _, existing := s.Tasks[t.Name]; existing {
-		log.Panicln("Task already registered:", t.Name)
+		log.Panicf("Task %q already registered", t.Name)
 	}
 	s.Tasks[t.Name] = t
 }

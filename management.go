@@ -3,8 +3,6 @@ package nori
 import (
 	"expvar"
 	"net/http"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 func (s *Server) RunManagementServer(addr string) {
