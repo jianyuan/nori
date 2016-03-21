@@ -1,6 +1,12 @@
 package protocol
 
-import "time"
+import (
+	"errors"
+	"strings"
+	"time"
+
+	"github.com/jianyuan/nori/message"
+)
 
 type CeleryTask struct {
 	Name       string                 `json:"task"`
@@ -16,6 +22,20 @@ type CeleryTask struct {
 	TimeLimits [2]*float64            `json:"timelimit,omitempty"`
 	TaskSet    *string                `json:"taskset,omitempty"`
 	Chord      *string                `json:"chord,omitempty"`
+	ReplyTo    *string                `json:"-"`
+}
+
+func (t *CeleryTask) ToRequest() *message.Request {
+	return &message.Request{
+		TaskName:  t.Name,
+		ID:        t.ID,
+		Args:      t.Args,
+		KWArgs:    t.KWArgs,
+		ETA:       t.ETA,
+		ExpiresAt: t.ExpiresAt,
+		IsUTC:     t.IsUTC,
+		ReplyTo:   t.ReplyTo,
+	}
 }
 
 type CeleryResult struct {
@@ -29,4 +49,16 @@ type CeleryResult struct {
 type CeleryExceptionResult struct {
 	Message string `json:"exc_message"`
 	Type    string `json:"exc_type"`
+}
+
+func NewCeleryResult(resp message.Response) (*CeleryResult, error) {
+	if resp == nil {
+		return nil, errors.New("protocol: Response is nil")
+	}
+	// TODO check error
+	return &CeleryResult{
+		Status: strings.ToUpper(resp.GetStatus().String()),
+		Result: resp.GetBody(),
+		TaskID: resp.GetID(),
+	}, nil
 }

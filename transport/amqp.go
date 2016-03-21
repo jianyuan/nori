@@ -2,6 +2,7 @@ package transport
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -144,8 +145,7 @@ func (AMQPTransport) parseDelivery(d amqp.Delivery) (*message.Request, error) {
 			ETA:       celeryTask.ETA,
 			ExpiresAt: celeryTask.ExpiresAt,
 			IsUTC:     celeryTask.IsUTC,
-
-			ReplyTo: d.ReplyTo,
+			ReplyTo:   &d.ReplyTo,
 		}, nil
 
 	default:
@@ -167,16 +167,20 @@ func (srv *AMQPTransport) Close() error {
 }
 
 func (srv *AMQPTransport) Reply(req *message.Request, resp message.Response) error {
+	replyTo := resp.GetReplyTo()
+	if replyTo == nil {
+		return errors.New("AMQPTransport: no reply queue specified")
+	}
+
 	body, err := messageResponseBytes(resp)
 	if err != nil {
 		return err
 	}
-
 	return srv.channel.Publish(
-		"",                // exchange
-		resp.GetReplyTo(), // key
-		true,              // mandatory
-		false,             // immediate
+		"",       // exchange
+		*replyTo, // key
+		true,     // mandatory
+		false,    // immediate
 		amqp.Publishing{
 			ContentType:   "application/json",
 			DeliveryMode:  amqp.Persistent,
@@ -196,9 +200,9 @@ func NewAMQPTransport(url string) Driver {
 }
 
 func messageResponseBytes(resp message.Response) ([]byte, error) {
-	return json.Marshal(protocol.CeleryResult{
-		Status: resp.GetStatus(),
-		Result: resp.GetBody(),
-		TaskID: resp.GetID(),
-	})
+	p, err := protocol.NewCeleryResult(resp)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(p)
 }

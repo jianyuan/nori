@@ -16,7 +16,7 @@ type Request struct {
 	ExpiresAt *time.Time
 	IsUTC     bool
 
-	ReplyTo string
+	ReplyTo *string
 	// TODO other celery fields
 }
 
@@ -37,7 +37,7 @@ func (req *Request) MustKWArg(key string) interface{} {
 func (req *Request) NewResponse() Response {
 	return &response{
 		ID:      req.ID,
-		Status:  "SUCCESS",
+		Status:  Success,
 		ReplyTo: req.ReplyTo,
 	}
 }
@@ -51,27 +51,27 @@ func NewRequest() *Request {
 
 type Response interface {
 	SetID(string)
-	SetStatus(string)
+	SetStatus(State)
 	SetBody(interface{}) error
 	GetID() string
-	GetStatus() string
+	GetStatus() State
 	GetBody() interface{}
-	GetReplyTo() string
+	GetReplyTo() *string
 }
 
 type response struct {
 	ID     string
-	Status string
+	Status State
 	Body   interface{}
 
-	ReplyTo string
+	ReplyTo *string
 }
 
 func (resp *response) SetID(id string) {
 	resp.ID = id
 }
 
-func (resp *response) SetStatus(status string) {
+func (resp *response) SetStatus(status State) {
 	resp.Status = status
 }
 
@@ -84,7 +84,7 @@ func (resp *response) GetID() string {
 	return resp.ID
 }
 
-func (resp *response) GetStatus() string {
+func (resp *response) GetStatus() State {
 	return resp.Status
 }
 
@@ -92,6 +92,6 @@ func (resp *response) GetBody() interface{} {
 	return resp.Body
 }
 
-func (resp *response) GetReplyTo() string {
+func (resp *response) GetReplyTo() *string {
 	return resp.ReplyTo
 }
