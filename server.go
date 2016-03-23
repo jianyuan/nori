@@ -1,11 +1,13 @@
 package nori
 
 import (
+	"fmt"
 	"os"
 	"time"
 
 	"gopkg.in/tomb.v2"
 
+	"github.com/jianyuan/nori/message"
 	"github.com/jianyuan/nori/transport"
 	"github.com/kr/pretty"
 )
@@ -111,24 +113,17 @@ func (s *Server) consumeMessages() {
 			pretty.Println("Request:", req)
 
 			if task, ok := s.Tasks[req.TaskName]; ok {
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							log.Errorln("Handler panicked:", r)
-						}
-					}()
-					resp, err := task.Handler(req)
-					if err != nil {
-						log.Errorln("Task handler errored:", err)
-					} else {
-						pretty.Println("Response:", resp)
-						log.Infoln("Replying...")
+				resp, err := callTaskHandlerSafely(task.Handler, req)
+				if err != nil {
+					log.Errorln("Task handler errored:", err)
+				} else {
+					pretty.Println("Response:", resp)
+					log.Infoln("Replying...")
 
-						if err := s.Transport.Reply(req, resp); err != nil {
-							log.Errorln("Reply errored:", err)
-						}
+					if err := s.Transport.Reply(req, resp); err != nil {
+						log.Errorln("Reply errored:", err)
 					}
-				}()
+				}
 			} else {
 				log.Errorln("Unknown task:", req.TaskName)
 			}
@@ -145,4 +140,21 @@ func (s *Server) Wait() error {
 
 func (s *Server) Stop() {
 	s.tomb.Kill(nil)
+}
+
+func callTaskHandlerSafely(t TaskHandlerFunc, req *message.Request) (message.Response, error) {
+	var resp message.Response
+	var err error
+	resp, err = func() (message.Response, error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("Handler panicked: %v", r)
+			}
+		}()
+		return t(req)
+	}()
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
