@@ -2,10 +2,12 @@ package transport
 
 import (
 	"github.com/jianyuan/nori/message"
+	"golang.org/x/net/context"
 	"gopkg.in/tomb.v2"
 )
 
 type Driver interface {
+	Init(context.Context) error
 	Name() string
 	Tomb() *tomb.Tomb
 	Setup() error

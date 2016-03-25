@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 
+	"golang.org/x/net/context"
+
 	"github.com/jianyuan/nori"
 	"github.com/jianyuan/nori/message"
 	"github.com/jianyuan/nori/transport"
@@ -23,8 +25,15 @@ func Add(req *message.Request) (message.Response, error) {
 }
 
 func main() {
-	t := transport.NewAMQPTransport("amqp://guest:guest@localhost:5672//")
-	s := nori.NewServer("tasks", t)
+	ctx := context.Background()
+
+	s, err := nori.NewServer(ctx, &nori.Configuration{
+		Name:      "tasks",
+		Transport: transport.NewAMQPTransport("amqp://guest:guest@localhost:5672//"),
+	})
+	if err != nil {
+		log.Panicln("Server configuration error:", err)
+	}
 
 	s.RegisterTask(&nori.Task{
 		Name:    "ping",

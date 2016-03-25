@@ -3,10 +3,12 @@ package nori
 import (
 	"expvar"
 	"net/http"
+
+	"github.com/jianyuan/nori/log"
 )
 
 func (s *Server) RunManagementServer(addr string) {
-	log.Infoln("Management server listening on", addr)
+	log.FromContext(s).Infoln("Management server listening on", addr)
 	s.setupExpvar()
 	go http.ListenAndServe(addr, nil)
 }

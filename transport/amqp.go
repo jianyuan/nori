@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/net/context"
+
+	"github.com/jianyuan/nori/log"
 	"github.com/jianyuan/nori/message"
 	"github.com/jianyuan/nori/protocol"
 	"github.com/kr/pretty"
@@ -14,6 +17,7 @@ import (
 )
 
 type AMQPTransport struct {
+	context.Context
 	URL          string
 	ExchangeName string
 	ExchangeKind string
@@ -24,28 +28,33 @@ type AMQPTransport struct {
 
 func (AMQPTransport) Name() string { return "AMQPTransport" }
 
-func (srv *AMQPTransport) Setup() error {
+func (t *AMQPTransport) Init(ctx context.Context) error {
+	t.Context = ctx
+	return nil
+}
+
+func (t *AMQPTransport) Setup() error {
 	// TODO advanced config
-	conn, err := amqp.Dial(srv.URL)
+	conn, err := amqp.Dial(t.URL)
 	if err != nil {
 		return err
 	}
-	srv.conn = conn
+	t.conn = conn
 
 	ch, err := conn.Channel()
 	if err != nil {
 		return err
 	}
-	srv.channel = ch
+	t.channel = ch
 
-	if err := srv.channel.ExchangeDeclare(
-		srv.ExchangeName, // name
-		srv.ExchangeKind, // kind
-		true,             // durable
-		false,            // autoDelete
-		false,            // internal
-		false,            // noWait
-		nil,              // args
+	if err := t.channel.ExchangeDeclare(
+		t.ExchangeName, // name
+		t.ExchangeKind, // kind
+		true,           // durable
+		false,          // autoDelete
+		false,          // internal
+		false,          // noWait
+		nil,            // args
 	); err != nil {
 		return err
 	}
@@ -53,41 +62,40 @@ func (srv *AMQPTransport) Setup() error {
 	return nil
 }
 
-func (srv *AMQPTransport) Consume(name string) (<-chan *message.Request, error) {
-	deliveryChan, err := srv.consume(name)
+func (t *AMQPTransport) Consume(name string) (<-chan *message.Request, error) {
+	deliveryChan, err := t.consume(name)
 	if err != nil {
 		return nil, err
 	}
 
 	msgChan := make(chan *message.Request)
-	srv.tomb.Go(func() error {
+	t.tomb.Go(func() error {
 		for {
 			select {
-			case <-srv.tomb.Dying():
+			case <-t.tomb.Dying():
 				return nil
 
 			case delivery, ok := <-deliveryChan:
 				if !ok {
-					log.Warnln("Channel closed")
+					log.FromContext(t).Warnln("Channel closed")
 					return nil
 				}
 
-				msg, err := srv.parseDelivery(delivery)
+				msg, err := t.parseDelivery(delivery)
 				if err != nil {
-					log.Warnln("Error parsing message:", err)
+					log.FromContext(t).Warnln("Error parsing message:", err)
 					delivery.Nack(false, false)
 					continue
 				}
 				msgChan <- msg
 			}
 		}
-		return nil
 	})
 	return msgChan, nil
 }
 
-func (srv *AMQPTransport) consume(name string) (<-chan amqp.Delivery, error) {
-	q, err := srv.channel.QueueDeclare(
+func (t *AMQPTransport) consume(name string) (<-chan amqp.Delivery, error) {
+	q, err := t.channel.QueueDeclare(
 		name,  // name
 		true,  // durable
 		false, // autoDelete,
@@ -99,17 +107,17 @@ func (srv *AMQPTransport) consume(name string) (<-chan amqp.Delivery, error) {
 		return nil, err
 	}
 
-	if err := srv.channel.QueueBind(
-		q.Name,           // name
-		q.Name,           // key
-		srv.ExchangeName, // exchange
-		false,            // noWait
-		nil,              // args
+	if err := t.channel.QueueBind(
+		q.Name,         // name
+		q.Name,         // key
+		t.ExchangeName, // exchange
+		false,          // noWait
+		nil,            // args
 	); err != nil {
 		return nil, err
 	}
 
-	msgs, err := srv.channel.Consume(
+	msgs, err := t.channel.Consume(
 		q.Name, // queue
 		"",     // consumer
 		false,  // autoAck
@@ -153,20 +161,20 @@ func (AMQPTransport) parseDelivery(d amqp.Delivery) (*message.Request, error) {
 	}
 }
 
-func (srv *AMQPTransport) Tomb() *tomb.Tomb {
-	return srv.tomb
+func (t *AMQPTransport) Tomb() *tomb.Tomb {
+	return t.tomb
 }
 
-func (srv *AMQPTransport) Close() error {
-	if srv.conn != nil {
-		if err := srv.conn.Close(); err != nil {
+func (t *AMQPTransport) Close() error {
+	if t.conn != nil {
+		if err := t.conn.Close(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (srv *AMQPTransport) Reply(req *message.Request, resp message.Response) error {
+func (t *AMQPTransport) Reply(req *message.Request, resp message.Response) error {
 	replyTo := resp.GetReplyTo()
 	if replyTo == nil {
 		return errors.New("AMQPTransport: no reply queue specified")
@@ -177,7 +185,7 @@ func (srv *AMQPTransport) Reply(req *message.Request, resp message.Response) err
 		return err
 	}
 
-	return srv.channel.Publish(
+	return t.channel.Publish(
 		"",       // exchange
 		*replyTo, // key
 		true,     // mandatory
