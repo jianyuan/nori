@@ -54,7 +54,7 @@ func (srv *AMQPTransport) Setup() error {
 }
 
 func (srv *AMQPTransport) Consume(name string) (<-chan *message.Request, error) {
-	rawMsgs, err := srv.consume(name)
+	deliveryChan, err := srv.consume(name)
 	if err != nil {
 		return nil, err
 	}
@@ -66,16 +66,16 @@ func (srv *AMQPTransport) Consume(name string) (<-chan *message.Request, error) 
 			case <-srv.tomb.Dying():
 				return nil
 
-			case rawMsg, ok := <-rawMsgs:
+			case delivery, ok := <-deliveryChan:
 				if !ok {
 					log.Warnln("Channel closed")
 					return nil
 				}
 
-				msg, err := srv.parseDelivery(rawMsg)
+				msg, err := srv.parseDelivery(delivery)
 				if err != nil {
 					log.Warnln("Error parsing message:", err)
-					rawMsg.Nack(false, false)
+					delivery.Nack(false, false)
 					continue
 				}
 				msgChan <- msg
@@ -129,7 +129,7 @@ func (AMQPTransport) parseDelivery(d amqp.Delivery) (*message.Request, error) {
 	switch d.ContentType {
 	case "application/json":
 		// TODO refactor
-		celeryTask := protocol.CeleryTask{}
+		var celeryTask protocol.CeleryTask
 		if err := json.Unmarshal(d.Body, &celeryTask); err != nil {
 			return nil, err
 		}
@@ -176,6 +176,7 @@ func (srv *AMQPTransport) Reply(req *message.Request, resp message.Response) err
 	if err != nil {
 		return err
 	}
+
 	return srv.channel.Publish(
 		"",       // exchange
 		*replyTo, // key
