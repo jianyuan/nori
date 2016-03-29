@@ -3,6 +3,7 @@ package amqp
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/streadway/amqp"
 )
@@ -208,3 +209,184 @@ func NewAMQPAdmin(conn *amqp.Connection) (Admin, error) {
 		conn: conn,
 	}, nil
 }
+
+// Connection
+
+type amqpConnection struct {
+	listener ConnectionListener
+	conn     *amqp.Connection
+
+	muNotify         sync.Mutex
+	createChannelChs []chan<- Channel
+	closeChannelChs  []chan<- Channel
+}
+
+func (c *amqpConnection) CreateChannel() (Channel, error) {
+	ch, err := c.conn.Channel()
+	if err != nil {
+		return nil, err
+	}
+	wrappedCh := newAMQPChannel(ch, c)
+
+	c.OnCreate(wrappedCh)
+
+	return wrappedCh, nil
+}
+
+func (c *amqpConnection) Close() error {
+	if err := c.conn.Close(); err != nil {
+		return err
+	}
+
+	if c.listener != nil {
+		c.listener.OnClose(c)
+	}
+
+	return nil
+}
+
+func (c *amqpConnection) IsOpen() bool {
+	return c.conn != nil
+}
+
+func (c *amqpConnection) NotifyCreateChannel(ch chan Channel) chan Channel {
+	c.muNotify.Lock()
+	defer c.muNotify.Unlock()
+	c.createChannelChs = append(c.createChannelChs, ch)
+	return ch
+}
+
+func (c *amqpConnection) NotifyCloseChannel(ch chan Channel) chan Channel {
+	c.muNotify.Lock()
+	defer c.muNotify.Unlock()
+	c.closeChannelChs = append(c.closeChannelChs, ch)
+	return ch
+}
+
+func (c *amqpConnection) OnCreate(channel Channel) {
+	c.muNotify.Lock()
+	defer c.muNotify.Unlock()
+	for _, ch := range c.createChannelChs {
+		ch <- channel
+	}
+}
+
+func (c *amqpConnection) OnClose(channel Channel) {
+	c.muNotify.Lock()
+	defer c.muNotify.Unlock()
+	for _, ch := range c.closeChannelChs {
+		ch <- channel
+	}
+}
+
+func newAMQPConnection(conn *amqp.Connection, listener ConnectionListener) Connection {
+	return &amqpConnection{
+		conn:     conn,
+		listener: listener,
+	}
+}
+
+var _ Connection = (*amqpConnection)(nil)
+var _ ChannelListener = (*amqpConnection)(nil)
+
+// Channel
+
+type amqpChannel struct {
+	listener ChannelListener
+	ch       *amqp.Channel
+}
+
+func newAMQPChannel(ch *amqp.Channel, listener ChannelListener) Channel {
+	return &amqpChannel{
+		ch:       ch,
+		listener: listener,
+	}
+}
+
+var _ Channel = (*amqpChannel)(nil)
+
+// Connection factory
+
+type singleAMQPConnectionFactory struct {
+	url string
+
+	mu   sync.Mutex
+	conn Connection
+
+	muNotify  sync.Mutex
+	createChs []chan<- Connection
+	closeChs  []chan<- Connection
+}
+
+func (s *singleAMQPConnectionFactory) URL() string {
+	return s.url
+}
+
+func (s *singleAMQPConnectionFactory) Create() (Connection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.conn == nil {
+		conn, err := amqp.Dial(s.url)
+		if err != nil {
+			return nil, err
+		}
+		s.conn = newAMQPConnection(conn, s)
+
+		s.OnCreate(s.conn)
+	}
+
+	return s.conn, nil
+}
+
+func (s *singleAMQPConnectionFactory) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.conn != nil {
+		if err := s.conn.Close(); err != nil {
+			return err
+		}
+		s.conn = nil
+	}
+
+	return nil
+}
+
+func (s *singleAMQPConnectionFactory) NotifyCreate(ch chan Connection) chan Connection {
+	s.muNotify.Lock()
+	defer s.muNotify.Unlock()
+	s.createChs = append(s.createChs, ch)
+	return ch
+}
+
+func (s *singleAMQPConnectionFactory) NotifyClose(ch chan Connection) chan Connection {
+	s.muNotify.Lock()
+	defer s.muNotify.Unlock()
+	s.closeChs = append(s.closeChs, ch)
+	return ch
+}
+
+func (s *singleAMQPConnectionFactory) OnCreate(conn Connection) {
+	s.muNotify.Lock()
+	defer s.muNotify.Unlock()
+	for _, ch := range s.createChs {
+		ch <- s.conn
+	}
+}
+func (s *singleAMQPConnectionFactory) OnClose(conn Connection) {
+	s.muNotify.Lock()
+	defer s.muNotify.Unlock()
+	for _, ch := range s.closeChs {
+		ch <- s.conn
+	}
+}
+
+func NewSingleAMQPConnectionFactory(url string) (ConnectionFactory, error) {
+	return &singleAMQPConnectionFactory{
+		url: url,
+	}, nil
+}
+
+var _ ConnectionFactory = (*singleAMQPConnectionFactory)(nil)
+var _ ConnectionListener = (*singleAMQPConnectionFactory)(nil)
