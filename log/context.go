@@ -7,12 +7,12 @@ import (
 
 type loggerKey struct{}
 
-func NewContext(ctx context.Context, logger logrus.FieldLogger) context.Context {
+func NewContext(ctx context.Context, logger Logger) context.Context {
 	return context.WithValue(ctx, loggerKey{}, logger)
 }
 
-func FromContext(ctx context.Context) logrus.FieldLogger {
-	if logger, ok := ctx.Value(loggerKey{}).(*logrus.Logger); ok {
+func FromContext(ctx context.Context) Logger {
+	if logger, ok := ctx.Value(loggerKey{}).(Logger); ok {
 		return logger
 	}
 	return logrus.StandardLogger()
