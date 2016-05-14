@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 
+	"golang.org/x/net/context"
+
 	"github.com/jianyuan/nori"
 )
 
@@ -17,17 +19,20 @@ type AddResponse struct {
 
 func main() {
 	worker := nori.NewWorker()
-	worker.Transport = nori.NewAMQPTransport()
+	worker.Transport = nori.NewAMQPTransport("amqp://guest:guest@localhost:5672/")
 	worker.Tasks = []nori.Task{
 		{
 			Name: "add",
-			Handler: func(ctx *nori.Context, req AddRequest) (*AddResponse, error) {
+			Handler: func(ctx context.Context, req AddRequest) (*AddResponse, error) {
 				return &AddResponse{Sum: req.A + req.B}, nil
 			},
 		},
 	}
 
 	if err := worker.Run(); err != nil {
+		log.Fatal(err)
+	}
+	if err := worker.Wait(); err != nil {
 		log.Fatal(err)
 	}
 }

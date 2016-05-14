@@ -3,6 +3,8 @@ package nori
 import (
 	"errors"
 	"reflect"
+
+	"golang.org/x/net/context"
 )
 
 // Task describes a unit of work
@@ -41,7 +43,7 @@ func (t *Task) init() error {
 
 	// Determine request type
 	// TODO: advanced validation
-	ct := reflect.TypeOf((*Context)(nil))
+	ct := reflect.TypeOf((*context.Context)(nil)).Elem()
 	for i := 0; i < ht.NumIn(); i++ {
 		it := ht.In(i)
 		if it != ct {
